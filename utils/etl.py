@@ -16,6 +16,7 @@ import pandas as pd
 import numpy as np
 import os
 from contextlib import closing
+import streamlit as st
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "..", "db", "bankshield.db")
 DB_PATH = os.path.abspath(DB_PATH)
@@ -184,6 +185,9 @@ def build_warehouse(df: pd.DataFrame, missing_strategy: str = "median") -> dict:
         fact.to_sql("FactTransactions", conn, if_exists="append", index=False)
         conn.commit()
 
+    # The warehouse was just rebuilt — drop any cached denormalized view.
+    get_fact_with_dims.clear()
+
     summary = {
         "clean_report": clean_report,
         "n_customers": len(dim_customer),
@@ -202,10 +206,17 @@ def update_customer_risk(risk_map: dict):
         for cust_id, risk in risk_map.items():
             cur.execute("UPDATE DimCustomer SET RiskLevel = ? WHERE CustomerID = ?", (risk, cust_id))
         conn.commit()
+    # RiskLevel changed — invalidate the cached denormalized view.
+    get_fact_with_dims.clear()
 
 
+@st.cache_data(show_spinner=False)
 def get_fact_with_dims() -> pd.DataFrame:
-    """Convenience: returns a denormalized view joining fact + all dims, for analytics/plotting."""
+    """Convenience: returns a denormalized view joining fact + all dims, for analytics/plotting.
+
+    Cached so repeated Streamlit reruns don't re-run the join on every interaction;
+    the cache is cleared by build_warehouse() and update_customer_risk() when the data changes.
+    """
     query = """
         SELECT f.TransactionID, f.TransactionAmount, f.AccountBalance, f.DeviceUsed,
                f.DailyTransactionCount, f.FraudFlag,

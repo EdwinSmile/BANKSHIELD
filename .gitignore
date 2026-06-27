@@ -3,6 +3,11 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# Test / coverage caches
+.pytest_cache/
+.coverage
+htmlcov/
+
 # Generated SQLite warehouse (rebuilt by the Preprocessing page; may contain
 # whatever dataset was last loaded — keep real data out of version control)
 db/*.db

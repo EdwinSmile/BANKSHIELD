@@ -120,6 +120,15 @@ if "fraud_model_result" in st.session_state:
     preds = result["predictions"]
     flagged = preds[preds["PredictedFraud"] == 1].sort_values("FraudProbability", ascending=False)
     explain(f"The model flagged **{len(flagged):,}** transactions as likely fraud, out of {len(preds):,} total.")
+    if "InTestSet" in preds.columns:
+        n_test_flagged = int(flagged["InTestSet"].sum())
+        st.caption(
+            "This list covers **all** transactions, including the ~75% the model trained on, "
+            "so it looks more accurate here than it would on brand-new data. "
+            f"{n_test_flagged:,} of these flags come from the held-out test set the model never "
+            "saw — the Accuracy / Precision / Recall figures above are measured only on that "
+            "held-out set, so those are the honest numbers to judge it by."
+        )
     display_flagged = flagged.copy()
     display_flagged["FraudProbability"] = (display_flagged["FraudProbability"] * 100).round(1).astype(str) + "%"
     display_flagged["ActualFraud"] = display_flagged["ActualFraud"].map({1: "Yes", 0: "No"})
