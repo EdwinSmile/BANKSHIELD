@@ -1,0 +1,20 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Generated SQLite warehouse (rebuilt by the Preprocessing page; may contain
+# whatever dataset was last loaded — keep real data out of version control)
+db/*.db
+
+# Streamlit secrets / local config
+.streamlit/secrets.toml
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db

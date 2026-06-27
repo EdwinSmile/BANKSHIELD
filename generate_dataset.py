@@ -4,6 +4,7 @@ structure of well-known Kaggle banking/credit-card fraud datasets.
 Columns: CustomerID, Age, Gender, Occupation, Income, AccountBalance,
 TransactionAmount, TransactionType, Timestamp, Location, CreditScore, Fraud
 """
+import os
 import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
@@ -112,7 +113,9 @@ dup_rows = df.sample(n=50, random_state=1)
 df = pd.concat([df, dup_rows], ignore_index=True)
 df = df.sample(frac=1, random_state=7).reset_index(drop=True)
 
-df.to_csv("/home/claude/bankshield/data/sample_banking_transactions.csv", index=False)
+out_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+os.makedirs(out_dir, exist_ok=True)
+df.to_csv(os.path.join(out_dir, "sample_banking_transactions.csv"), index=False)
 print(df.shape)
 print(df["Fraud"].value_counts())
 print(df.head(3).to_string())
