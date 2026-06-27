@@ -15,6 +15,7 @@ import sqlite3
 import pandas as pd
 import numpy as np
 import os
+from contextlib import closing
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "..", "db", "bankshield.db")
 DB_PATH = os.path.abspath(DB_PATH)
@@ -79,112 +80,109 @@ def build_warehouse(df: pd.DataFrame, missing_strategy: str = "median") -> dict:
     df["Timestamp"] = pd.to_datetime(df["Timestamp"], errors="coerce")
     df = df.dropna(subset=["Timestamp"]).reset_index(drop=True)
 
-    conn = get_connection()
-    cur = conn.cursor()
+    with closing(get_connection()) as conn, closing(conn.cursor()) as cur:
+        # --- Drop & recreate schema (idempotent rebuild) ---
+        for tbl in ["FactTransactions", "DimCustomer", "DimTime", "DimLocation", "DimTransactionType"]:
+            cur.execute(f"DROP TABLE IF EXISTS {tbl}")
 
-    # --- Drop & recreate schema (idempotent rebuild) ---
-    for tbl in ["FactTransactions", "DimCustomer", "DimTime", "DimLocation", "DimTransactionType"]:
-        cur.execute(f"DROP TABLE IF EXISTS {tbl}")
+        cur.execute("""
+            CREATE TABLE DimCustomer (
+                CustomerKey INTEGER PRIMARY KEY AUTOINCREMENT,
+                CustomerID TEXT UNIQUE,
+                Age INTEGER,
+                Gender TEXT,
+                Occupation TEXT,
+                Income REAL,
+                CreditScore REAL,
+                PreviousFraudHistory INTEGER,
+                RiskLevel TEXT DEFAULT 'Unscored'
+            )
+        """)
+        cur.execute("""
+            CREATE TABLE DimTime (
+                TimeKey INTEGER PRIMARY KEY AUTOINCREMENT,
+                FullTimestamp TEXT UNIQUE,
+                Date TEXT, Month INTEGER, Quarter INTEGER, Year INTEGER, Hour INTEGER
+            )
+        """)
+        cur.execute("""
+            CREATE TABLE DimLocation (
+                LocationKey INTEGER PRIMARY KEY AUTOINCREMENT,
+                City TEXT UNIQUE
+            )
+        """)
+        cur.execute("""
+            CREATE TABLE DimTransactionType (
+                TransactionTypeKey INTEGER PRIMARY KEY AUTOINCREMENT,
+                TransactionType TEXT UNIQUE
+            )
+        """)
+        cur.execute("""
+            CREATE TABLE FactTransactions (
+                TransactionID TEXT PRIMARY KEY,
+                CustomerKey INTEGER,
+                TimeKey INTEGER,
+                LocationKey INTEGER,
+                TransactionTypeKey INTEGER,
+                AccountBalance REAL,
+                TransactionAmount REAL,
+                DeviceUsed TEXT,
+                DailyTransactionCount INTEGER,
+                FraudFlag INTEGER,
+                FOREIGN KEY (CustomerKey) REFERENCES DimCustomer(CustomerKey),
+                FOREIGN KEY (TimeKey) REFERENCES DimTime(TimeKey),
+                FOREIGN KEY (LocationKey) REFERENCES DimLocation(LocationKey),
+                FOREIGN KEY (TransactionTypeKey) REFERENCES DimTransactionType(TransactionTypeKey)
+            )
+        """)
+        conn.commit()
 
-    cur.execute("""
-        CREATE TABLE DimCustomer (
-            CustomerKey INTEGER PRIMARY KEY AUTOINCREMENT,
-            CustomerID TEXT UNIQUE,
-            Age INTEGER,
-            Gender TEXT,
-            Occupation TEXT,
-            Income REAL,
-            CreditScore REAL,
-            PreviousFraudHistory INTEGER,
-            RiskLevel TEXT DEFAULT 'Unscored'
-        )
-    """)
-    cur.execute("""
-        CREATE TABLE DimTime (
-            TimeKey INTEGER PRIMARY KEY AUTOINCREMENT,
-            FullTimestamp TEXT UNIQUE,
-            Date TEXT, Month INTEGER, Quarter INTEGER, Year INTEGER, Hour INTEGER
-        )
-    """)
-    cur.execute("""
-        CREATE TABLE DimLocation (
-            LocationKey INTEGER PRIMARY KEY AUTOINCREMENT,
-            City TEXT UNIQUE
-        )
-    """)
-    cur.execute("""
-        CREATE TABLE DimTransactionType (
-            TransactionTypeKey INTEGER PRIMARY KEY AUTOINCREMENT,
-            TransactionType TEXT UNIQUE
-        )
-    """)
-    cur.execute("""
-        CREATE TABLE FactTransactions (
-            TransactionID TEXT PRIMARY KEY,
-            CustomerKey INTEGER,
-            TimeKey INTEGER,
-            LocationKey INTEGER,
-            TransactionTypeKey INTEGER,
-            AccountBalance REAL,
-            TransactionAmount REAL,
-            DeviceUsed TEXT,
-            DailyTransactionCount INTEGER,
-            FraudFlag INTEGER,
-            FOREIGN KEY (CustomerKey) REFERENCES DimCustomer(CustomerKey),
-            FOREIGN KEY (TimeKey) REFERENCES DimTime(TimeKey),
-            FOREIGN KEY (LocationKey) REFERENCES DimLocation(LocationKey),
-            FOREIGN KEY (TransactionTypeKey) REFERENCES DimTransactionType(TransactionTypeKey)
-        )
-    """)
-    conn.commit()
+        # --- DimCustomer ---
+        cust_cols = ["CustomerID", "Age", "Gender", "Occupation", "Income", "CreditScore", "PreviousFraudHistory"]
+        cust_cols = [c for c in cust_cols if c in df.columns]
+        dim_customer = df[cust_cols].drop_duplicates(subset=["CustomerID"]).reset_index(drop=True)
+        dim_customer.to_sql("DimCustomer", conn, if_exists="append", index=False)
 
-    # --- DimCustomer ---
-    cust_cols = ["CustomerID", "Age", "Gender", "Occupation", "Income", "CreditScore", "PreviousFraudHistory"]
-    cust_cols = [c for c in cust_cols if c in df.columns]
-    dim_customer = df[cust_cols].drop_duplicates(subset=["CustomerID"]).reset_index(drop=True)
-    dim_customer.to_sql("DimCustomer", conn, if_exists="append", index=False)
+        # --- DimTime ---
+        df["Date"] = df["Timestamp"].dt.date.astype(str)
+        df["Month"] = df["Timestamp"].dt.month
+        df["Quarter"] = df["Timestamp"].dt.quarter
+        df["Year"] = df["Timestamp"].dt.year
+        df["Hour"] = df["Timestamp"].dt.hour
+        df["FullTimestamp"] = df["Timestamp"].astype(str)
+        dim_time = df[["FullTimestamp", "Date", "Month", "Quarter", "Year", "Hour"]].drop_duplicates(
+            subset=["FullTimestamp"]).reset_index(drop=True)
+        dim_time.to_sql("DimTime", conn, if_exists="append", index=False)
 
-    # --- DimTime ---
-    df["Date"] = df["Timestamp"].dt.date.astype(str)
-    df["Month"] = df["Timestamp"].dt.month
-    df["Quarter"] = df["Timestamp"].dt.quarter
-    df["Year"] = df["Timestamp"].dt.year
-    df["Hour"] = df["Timestamp"].dt.hour
-    df["FullTimestamp"] = df["Timestamp"].astype(str)
-    dim_time = df[["FullTimestamp", "Date", "Month", "Quarter", "Year", "Hour"]].drop_duplicates(
-        subset=["FullTimestamp"]).reset_index(drop=True)
-    dim_time.to_sql("DimTime", conn, if_exists="append", index=False)
+        # --- DimLocation ---
+        dim_location = pd.DataFrame({"City": df["Location"].dropna().unique()})
+        dim_location.to_sql("DimLocation", conn, if_exists="append", index=False)
 
-    # --- DimLocation ---
-    dim_location = pd.DataFrame({"City": df["Location"].dropna().unique()})
-    dim_location.to_sql("DimLocation", conn, if_exists="append", index=False)
+        # --- DimTransactionType ---
+        dim_ttype = pd.DataFrame({"TransactionType": df["TransactionType"].dropna().unique()})
+        dim_ttype.to_sql("DimTransactionType", conn, if_exists="append", index=False)
 
-    # --- DimTransactionType ---
-    dim_ttype = pd.DataFrame({"TransactionType": df["TransactionType"].dropna().unique()})
-    dim_ttype.to_sql("DimTransactionType", conn, if_exists="append", index=False)
+        # --- lookups for fact table ---
+        cust_map = pd.read_sql("SELECT CustomerKey, CustomerID FROM DimCustomer", conn).set_index("CustomerID")["CustomerKey"]
+        time_map = pd.read_sql("SELECT TimeKey, FullTimestamp FROM DimTime", conn).set_index("FullTimestamp")["TimeKey"]
+        loc_map = pd.read_sql("SELECT LocationKey, City FROM DimLocation", conn).set_index("City")["LocationKey"]
+        type_map = pd.read_sql("SELECT TransactionTypeKey, TransactionType FROM DimTransactionType", conn).set_index("TransactionType")["TransactionTypeKey"]
 
-    # --- lookups for fact table ---
-    cust_map = pd.read_sql("SELECT CustomerKey, CustomerID FROM DimCustomer", conn).set_index("CustomerID")["CustomerKey"]
-    time_map = pd.read_sql("SELECT TimeKey, FullTimestamp FROM DimTime", conn).set_index("FullTimestamp")["TimeKey"]
-    loc_map = pd.read_sql("SELECT LocationKey, City FROM DimLocation", conn).set_index("City")["LocationKey"]
-    type_map = pd.read_sql("SELECT TransactionTypeKey, TransactionType FROM DimTransactionType", conn).set_index("TransactionType")["TransactionTypeKey"]
+        fact = pd.DataFrame()
+        fact["TransactionID"] = df["TransactionID"]
+        fact["CustomerKey"] = df["CustomerID"].map(cust_map)
+        fact["TimeKey"] = df["FullTimestamp"].map(time_map)
+        fact["LocationKey"] = df["Location"].map(loc_map)
+        fact["TransactionTypeKey"] = df["TransactionType"].map(type_map)
+        fact["AccountBalance"] = df.get("AccountBalance")
+        fact["TransactionAmount"] = df["TransactionAmount"]
+        fact["DeviceUsed"] = df.get("DeviceUsed")
+        fact["DailyTransactionCount"] = df.get("DailyTransactionCount")
+        fact["FraudFlag"] = (df["Fraud"].astype(str).str.strip().str.lower() == "yes").astype(int)
 
-    fact = pd.DataFrame()
-    fact["TransactionID"] = df["TransactionID"]
-    fact["CustomerKey"] = df["CustomerID"].map(cust_map)
-    fact["TimeKey"] = df["FullTimestamp"].map(time_map)
-    fact["LocationKey"] = df["Location"].map(loc_map)
-    fact["TransactionTypeKey"] = df["TransactionType"].map(type_map)
-    fact["AccountBalance"] = df.get("AccountBalance")
-    fact["TransactionAmount"] = df["TransactionAmount"]
-    fact["DeviceUsed"] = df.get("DeviceUsed")
-    fact["DailyTransactionCount"] = df.get("DailyTransactionCount")
-    fact["FraudFlag"] = (df["Fraud"].astype(str).str.strip().str.lower() == "yes").astype(int)
-
-    fact = fact.drop_duplicates(subset=["TransactionID"])
-    fact.to_sql("FactTransactions", conn, if_exists="append", index=False)
-    conn.commit()
-    conn.close()
+        fact = fact.drop_duplicates(subset=["TransactionID"])
+        fact.to_sql("FactTransactions", conn, if_exists="append", index=False)
+        conn.commit()
 
     summary = {
         "clean_report": clean_report,
@@ -200,17 +198,14 @@ def build_warehouse(df: pd.DataFrame, missing_strategy: str = "median") -> dict:
 
 def update_customer_risk(risk_map: dict):
     """risk_map: {CustomerID: RiskLevel string}"""
-    conn = get_connection()
-    cur = conn.cursor()
-    for cust_id, risk in risk_map.items():
-        cur.execute("UPDATE DimCustomer SET RiskLevel = ? WHERE CustomerID = ?", (risk, cust_id))
-    conn.commit()
-    conn.close()
+    with closing(get_connection()) as conn, closing(conn.cursor()) as cur:
+        for cust_id, risk in risk_map.items():
+            cur.execute("UPDATE DimCustomer SET RiskLevel = ? WHERE CustomerID = ?", (risk, cust_id))
+        conn.commit()
 
 
 def get_fact_with_dims() -> pd.DataFrame:
     """Convenience: returns a denormalized view joining fact + all dims, for analytics/plotting."""
-    conn = get_connection()
     query = """
         SELECT f.TransactionID, f.TransactionAmount, f.AccountBalance, f.DeviceUsed,
                f.DailyTransactionCount, f.FraudFlag,
@@ -225,20 +220,17 @@ def get_fact_with_dims() -> pd.DataFrame:
         LEFT JOIN DimLocation l ON f.LocationKey = l.LocationKey
         LEFT JOIN DimTransactionType tt ON f.TransactionTypeKey = tt.TransactionTypeKey
     """
-    df = pd.read_sql(query, conn)
-    conn.close()
-    return df
+    with closing(get_connection()) as conn:
+        return pd.read_sql(query, conn)
 
 
 def warehouse_exists() -> bool:
     if not os.path.exists(DB_PATH):
         return False
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='FactTransactions'")
-    exists = cur.fetchone() is not None
-    if exists:
-        cur.execute("SELECT COUNT(*) FROM FactTransactions")
-        exists = cur.fetchone()[0] > 0
-    conn.close()
+    with closing(get_connection()) as conn, closing(conn.cursor()) as cur:
+        cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='FactTransactions'")
+        exists = cur.fetchone() is not None
+        if exists:
+            cur.execute("SELECT COUNT(*) FROM FactTransactions")
+            exists = cur.fetchone()[0] > 0
     return exists

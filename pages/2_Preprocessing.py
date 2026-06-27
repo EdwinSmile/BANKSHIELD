@@ -66,9 +66,9 @@ with c2:
 
 st.markdown("### Step 3 — Run the cleanup")
 explain(
-    "Clicking the button below will: fill missing values, remove duplicates, encode text "
-    "categories (like Gender or Transaction Type) into a machine-readable form, and load "
-    "everything into the data warehouse used by the rest of the dashboard."
+    "Clicking the button below will: fill missing values, remove duplicate transactions, "
+    "standardize timestamps, and load everything into the data warehouse used by the rest "
+    "of the dashboard."
 )
 
 if st.button("Clean & Build Data Warehouse", type="primary", use_container_width=True):
@@ -96,7 +96,11 @@ if "warehouse_summary" in st.session_state:
         )
         st.dataframe(fill_df, use_container_width=True, hide_index=True)
 
-    st.markdown("**Categorical fields encoded for machine learning:** Gender, Transaction Type, Device Used")
+    st.caption(
+        "Text categories (like Gender or Transaction Type) are stored as-is in the warehouse "
+        "and converted into a machine-readable form automatically when you train a model on "
+        "the Fraud Detection page."
+    )
 
     st.success(
         f"Warehouse built: **{summary['n_customers']:,}** customers, "

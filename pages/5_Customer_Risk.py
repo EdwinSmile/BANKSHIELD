@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import html
 import sys, os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "utils"))
@@ -120,11 +121,16 @@ if "cluster_result" in st.session_state:
 
     st.markdown("---")
     st.markdown("### Customer-Level Detail")
-    display_clusters = clusters.copy()
+    display_clusters = clusters[["CustomerID", "RiskLevel", "TransactionAmount",
+                                 "AccountBalance", "CreditScore", "FraudFlag"]].copy()
+    # We render this table with escape=False so the colored risk badge (trusted HTML
+    # built from fixed risk-tier labels) shows. That means every other cell is rendered
+    # as raw HTML too — so escape the user-supplied CustomerID first, otherwise a crafted
+    # value (e.g. from an uploaded CSV/PDF) could inject HTML/JS into the dashboard.
+    display_clusters["CustomerID"] = display_clusters["CustomerID"].astype(str).map(html.escape)
     display_clusters["RiskLevel"] = display_clusters["RiskLevel"].apply(risk_badge)
     st.write(
-        display_clusters[["CustomerID", "RiskLevel", "TransactionAmount", "AccountBalance",
-                           "CreditScore", "FraudFlag"]]
+        display_clusters
         .rename(columns={"FraudFlag": "FraudCasesFound"})
         .head(200)
         .to_html(escape=False, index=False),
