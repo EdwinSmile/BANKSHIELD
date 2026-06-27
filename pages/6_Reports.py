@@ -47,14 +47,14 @@ if has_risk:
     st.markdown("### Customer Risk Breakdown")
     rc1, rc2 = st.columns([1, 2])
     with rc1:
-        st.dataframe(risk_counts.rename("Customers"), use_container_width=True)
+        st.dataframe(risk_counts.rename("Customers"), width="stretch")
     with rc2:
         fig = px.bar(risk_counts.reset_index(), x="RiskLevel", y="count" if "count" in risk_counts.reset_index().columns else "RiskLevel",
                       color="RiskLevel",
                       color_discrete_map=RISK_COLOR_MAP)
         pbi_layout(fig, height=300)
         fig.update_layout(showlegend=False)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 else:
     st.info("Run the **Customer Risk** page to include risk segmentation in this report.")
 
@@ -62,13 +62,13 @@ st.markdown("---")
 st.markdown("### Fraud by Transaction Type")
 fraud_by_type = df[df["FraudFlag"] == 1]["TransactionType"].value_counts().reset_index()
 fraud_by_type.columns = ["TransactionType", "FraudCount"]
-st.dataframe(fraud_by_type, use_container_width=True, hide_index=True)
+st.dataframe(fraud_by_type, width="stretch", hide_index=True)
 
 st.markdown("---")
 st.markdown("### Top Locations by Fraud")
 fraud_by_loc = df[df["FraudFlag"] == 1]["Location"].value_counts().head(10).reset_index()
 fraud_by_loc.columns = ["Location", "FraudCount"]
-st.dataframe(fraud_by_loc, use_container_width=True, hide_index=True)
+st.dataframe(fraud_by_loc, width="stretch", hide_index=True)
 
 st.markdown("---")
 st.markdown("### Download Data")
@@ -76,18 +76,18 @@ st.markdown("### Download Data")
 dl1, dl2, dl3 = st.columns(3)
 with dl1:
     csv_full = df.to_csv(index=False).encode("utf-8")
-    st.download_button("Download Full Dataset (CSV)", csv_full, "bankshield_full_data.csv", "text/csv", use_container_width=True)
+    st.download_button("Download Full Dataset (CSV)", csv_full, "bankshield_full_data.csv", "text/csv", width="stretch")
 with dl2:
     fraud_only = df[df["FraudFlag"] == 1]
     csv_fraud = fraud_only.to_csv(index=False).encode("utf-8")
-    st.download_button("Download Flagged Fraud (CSV)", csv_fraud, "bankshield_fraud_transactions.csv", "text/csv", use_container_width=True)
+    st.download_button("Download Flagged Fraud (CSV)", csv_fraud, "bankshield_fraud_transactions.csv", "text/csv", width="stretch")
 with dl3:
     if has_risk:
         risk_summary = df.drop_duplicates("CustomerID")[["CustomerID", "RiskLevel"]]
         csv_risk = risk_summary.to_csv(index=False).encode("utf-8")
-        st.download_button("Download Customer Risk List (CSV)", csv_risk, "bankshield_customer_risk.csv", "text/csv", use_container_width=True)
+        st.download_button("Download Customer Risk List (CSV)", csv_risk, "bankshield_customer_risk.csv", "text/csv", width="stretch")
     else:
-        st.button("Customer Risk List (run Customer Risk page first)", disabled=True, use_container_width=True)
+        st.button("Customer Risk List (run Customer Risk page first)", disabled=True, width="stretch")
 
 st.markdown("---")
 st.caption("This report was generated automatically by BankShield. Figures reflect the currently loaded dataset.")

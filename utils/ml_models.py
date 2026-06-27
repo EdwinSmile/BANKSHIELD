@@ -45,17 +45,30 @@ def train_fraud_model(df: pd.DataFrame, algorithm: str = "Random Forest", test_s
     X = data[available_features].copy()
     y = data["FraudFlag"].astype(int)
 
+    # Encode categoricals. LabelEncoder is target-independent (it only maps
+    # categories to integers), so fitting it on the full column does not leak the
+    # label into the model.
     encoders = {}
     for col in X.select_dtypes(include=["object"]).columns:
         le = LabelEncoder()
         X[col] = le.fit_transform(X[col].astype(str))
         encoders[col] = le
 
-    X = X.fillna(X.median(numeric_only=True))
+    # Only stratify when every class has at least 2 samples; otherwise
+    # train_test_split raises on tiny or extremely imbalanced uploads.
+    class_counts = y.value_counts()
+    stratify = y if (y.nunique() > 1 and class_counts.min() >= 2) else None
 
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=test_size, random_state=42, stratify=y if y.nunique() > 1 else None
+        X, y, test_size=test_size, random_state=42, stratify=stratify
     )
+
+    # Impute missing numbers using TRAIN medians only, then apply the same fill to
+    # the test set and the full scoring set. Computing the median over all rows
+    # (as before) leaks test-set information into training.
+    fill_values = X_train.median(numeric_only=True)
+    X_train = X_train.fillna(fill_values)
+    X_test = X_test.fillna(fill_values)
 
     if algorithm == "Decision Tree":
         model = DecisionTreeClassifier(max_depth=6, random_state=42, class_weight="balanced")
@@ -87,7 +100,7 @@ def train_fraud_model(df: pd.DataFrame, algorithm: str = "Random Forest", test_s
             "Importance": model.feature_importances_
         }).sort_values("Importance", ascending=False)
 
-    full_X = X.copy()
+    full_X = X.fillna(fill_values)
     full_pred = model.predict(full_X)
     full_proba = model.predict_proba(full_X)[:, 1] if hasattr(model, "predict_proba") else full_pred
 
@@ -95,6 +108,9 @@ def train_fraud_model(df: pd.DataFrame, algorithm: str = "Random Forest", test_s
     predictions_df["ActualFraud"] = y.values
     predictions_df["PredictedFraud"] = full_pred
     predictions_df["FraudProbability"] = full_proba
+    # Flag which rows were held out of training. Predictions on training rows are
+    # optimistic (the model has seen them), so the UI can be honest about it.
+    predictions_df["InTestSet"] = predictions_df.index.isin(X_test.index)
 
     return {
         "model": model,

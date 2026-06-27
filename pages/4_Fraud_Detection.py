@@ -47,7 +47,7 @@ with col2:
             "Pros: easy to interpret and explain to others, very fast."
         )
 
-if st.button("Train Fraud Detection Model", type="primary", use_container_width=True):
+if st.button("Train Fraud Detection Model", type="primary", width="stretch"):
     with st.spinner("Training the model... this may take a few seconds."):
         result = train_fraud_model(df, algorithm=algorithm)
     st.session_state["fraud_model_result"] = result
@@ -85,7 +85,7 @@ if "fraud_model_result" in st.session_state:
             xgap=2, ygap=2
         ))
         pbi_layout(fig, height=350)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
     with c2:
         if "roc_fpr" in metrics:
@@ -98,7 +98,7 @@ if "fraud_model_result" in st.session_state:
                                       line=dict(color=theme["subtext"], dash="dash"), name="Random guess"))
             pbi_layout(fig, height=350)
             fig.update_layout(xaxis_title="False Positive Rate", yaxis_title="True Positive Rate")
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
 
     if result["feature_importance"] is not None:
         st.markdown("**What factors matter most for predicting fraud?**")
@@ -112,7 +112,7 @@ if "fraud_model_result" in st.session_state:
                           color_discrete_sequence=[theme["accent"]])
             fig.update_layout(yaxis={"categoryorder": "total ascending"}, showlegend=False)
         pbi_layout(fig, height=350)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
         st.caption("Longer bars mean the model relies on that factor more heavily when spotting fraud.")
 
     st.markdown("---")
@@ -120,12 +120,21 @@ if "fraud_model_result" in st.session_state:
     preds = result["predictions"]
     flagged = preds[preds["PredictedFraud"] == 1].sort_values("FraudProbability", ascending=False)
     explain(f"The model flagged **{len(flagged):,}** transactions as likely fraud, out of {len(preds):,} total.")
+    if "InTestSet" in preds.columns:
+        n_test_flagged = int(flagged["InTestSet"].sum())
+        st.caption(
+            "This list covers **all** transactions, including the ~75% the model trained on, "
+            "so it looks more accurate here than it would on brand-new data. "
+            f"{n_test_flagged:,} of these flags come from the held-out test set the model never "
+            "saw — the Accuracy / Precision / Recall figures above are measured only on that "
+            "held-out set, so those are the honest numbers to judge it by."
+        )
     display_flagged = flagged.copy()
     display_flagged["FraudProbability"] = (display_flagged["FraudProbability"] * 100).round(1).astype(str) + "%"
     display_flagged["ActualFraud"] = display_flagged["ActualFraud"].map({1: "Yes", 0: "No"})
     st.dataframe(
         display_flagged[["TransactionID", "CustomerID", "FraudProbability", "ActualFraud"]].head(200),
-        use_container_width=True, hide_index=True
+        width="stretch", hide_index=True
     )
 
     st.markdown("---")
