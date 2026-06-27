@@ -38,13 +38,8 @@ else:
     n_txns = len(df)
     n_fraud = int(df["FraudFlag"].sum())
     fraud_rate = (n_fraud / n_txns * 100) if n_txns else 0
-    unique_cust = df.drop_duplicates("CustomerID")
-    # RiskLevel always exists (defaults to 'Unscored'); only report a count once the
-    # Customer Risk page has actually scored customers, otherwise say so.
-    if "RiskLevel" in df.columns and (unique_cust["RiskLevel"] != "Unscored").any():
-        high_risk = int((unique_cust["RiskLevel"] == "High Risk").sum())
-    else:
-        high_risk = "Not yet scored"
+    high_risk = (df.drop_duplicates("CustomerID")["RiskLevel"] == "High Risk").sum() \
+        if "RiskLevel" in df.columns else "Not yet scored"
 
     st.markdown("### Key numbers at a glance")
     c1, c2, c3, c4, c5 = st.columns(5)
