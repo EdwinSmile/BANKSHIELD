@@ -119,3 +119,21 @@ demonstration — swap in your real data any time via the Dataset page.
 - **ML models:** Decision Tree / Random Forest (fraud classification), K-Means
   (customer risk clustering)
 - All processing is local — nothing is sent to an external server
+
+---
+
+## Development
+
+Run the test suite:
+```
+pip install -r requirements-dev.txt
+pytest
+```
+
+The tests cover the ETL/warehouse roundtrip, the fraud and clustering models, and
+the input-validation helpers. The PDF-extraction test is skipped automatically if
+`pdfplumber` isn't installed.
+
+## License
+
+Released under the [MIT License](LICENSE).

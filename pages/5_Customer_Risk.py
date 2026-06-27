@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import html
 import sys, os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "utils"))
@@ -31,7 +32,7 @@ n_clusters = st.slider(
     help="3 groups (Low/Medium/High) is the standard banking convention."
 )
 
-if st.button("Run Customer Risk Clustering", type="primary", use_container_width=True):
+if st.button("Run Customer Risk Clustering", type="primary", width="stretch"):
     with st.spinner("Grouping customers by behavior..."):
         result = run_customer_clustering(df, n_clusters=n_clusters)
         update_customer_risk(dict(zip(
@@ -72,7 +73,7 @@ if "cluster_result" in st.session_state:
             fig = px.pie(dist, names="RiskLevel", values="Count", hole=0.45,
                          color="RiskLevel", color_discrete_map=RISK_COLOR_MAP)
         pbi_layout(fig)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
     with c2:
         st.markdown("**Risk Groups: Spending vs Balance**")
@@ -88,7 +89,7 @@ if "cluster_result" in st.session_state:
                 opacity=0.6, hover_data=["CustomerID"]
             )
         pbi_layout(fig)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
         st.caption("Each dot is a customer. High-risk customers often show large transactions relative to balance.")
 
     st.markdown("---")
@@ -120,11 +121,16 @@ if "cluster_result" in st.session_state:
 
     st.markdown("---")
     st.markdown("### Customer-Level Detail")
-    display_clusters = clusters.copy()
+    display_clusters = clusters[["CustomerID", "RiskLevel", "TransactionAmount",
+                                 "AccountBalance", "CreditScore", "FraudFlag"]].copy()
+    # We render this table with escape=False so the colored risk badge (trusted HTML
+    # built from fixed risk-tier labels) shows. That means every other cell is rendered
+    # as raw HTML too — so escape the user-supplied CustomerID first, otherwise a crafted
+    # value (e.g. from an uploaded CSV/PDF) could inject HTML/JS into the dashboard.
+    display_clusters["CustomerID"] = display_clusters["CustomerID"].astype(str).map(html.escape)
     display_clusters["RiskLevel"] = display_clusters["RiskLevel"].apply(risk_badge)
     st.write(
-        display_clusters[["CustomerID", "RiskLevel", "TransactionAmount", "AccountBalance",
-                           "CreditScore", "FraudFlag"]]
+        display_clusters
         .rename(columns={"FraudFlag": "FraudCasesFound"})
         .head(200)
         .to_html(escape=False, index=False),

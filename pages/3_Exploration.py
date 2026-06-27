@@ -39,7 +39,7 @@ numeric_summary = df[["TransactionAmount", "AccountBalance", "Age", "CreditScore
 ).T
 numeric_summary.columns = ["Mean", "Median", "Maximum", "Minimum", "Std. Deviation"]
 numeric_summary = numeric_summary.round(2)
-st.dataframe(numeric_summary, use_container_width=True)
+st.dataframe(numeric_summary, width="stretch")
 
 st.markdown("---")
 
@@ -48,13 +48,13 @@ st.markdown("### Frequency Tables")
 f1, f2, f3 = st.columns(3)
 with f1:
     st.markdown("**Transaction Type**")
-    st.dataframe(df["TransactionType"].value_counts().rename("Count"), use_container_width=True)
+    st.dataframe(df["TransactionType"].value_counts().rename("Count"), width="stretch")
 with f2:
     st.markdown("**Fraud Status**")
-    st.dataframe(df["FraudLabel"].value_counts().rename("Count"), use_container_width=True)
+    st.dataframe(df["FraudLabel"].value_counts().rename("Count"), width="stretch")
 with f3:
     st.markdown("**Customer Occupation**")
-    st.dataframe(df["Occupation"].value_counts().rename("Count"), use_container_width=True)
+    st.dataframe(df["Occupation"].value_counts().rename("Count"), width="stretch")
 
 st.markdown("---")
 
@@ -76,7 +76,7 @@ with c1:
                      color_discrete_sequence=theme["palette"])
         fig.update_layout(showlegend=False)
     pbi_layout(fig)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
     st.caption("Shows which type of transaction (deposit, withdrawal, etc.) fraud happens most in.")
 
 with c2:
@@ -92,7 +92,7 @@ with c2:
         fig = px.pie(pie_data, names="Status", values="Count", hole=0.45,
                      color="Status", color_discrete_map=FRAUD_COLOR_MAP)
     pbi_layout(fig)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
     st.caption("The overall split between fraud and normal activity.")
 
 c3, c4 = st.columns(2)
@@ -114,7 +114,7 @@ with c3:
         fig.update_traces(line_color=theme["red"])
     pbi_layout(fig)
     fig.update_layout(yaxis_title="Fraud Cases")
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
     st.caption("How fraud cases have moved over time — spikes may indicate fraud waves or attacks.")
 
 with c4:
@@ -129,7 +129,7 @@ with c4:
                             color_discrete_map=FRAUD_COLOR_MAP,
                             barmode="overlay", opacity=0.7)
     pbi_layout(fig)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
     st.caption("Most transactions are small; fraud often appears at higher amounts.")
 
 c5, c6 = st.columns(2)
@@ -146,7 +146,7 @@ with c5:
                           color_discrete_map=FRAUD_COLOR_MAP,
                           opacity=0.5)
     pbi_layout(fig)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
     st.caption("Each colored point or line is a transaction — fraud is highlighted separately. Look for clusters in certain age groups.")
 
 with c6:
@@ -160,7 +160,7 @@ with c6:
         xgap=2, ygap=2
     ))
     pbi_layout(fig)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
     st.caption("Shows how strongly different factors move together. Closer to 1 or -1 means a stronger relationship.")
 
 st.markdown("---")

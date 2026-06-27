@@ -27,7 +27,7 @@ with col1:
 with col2:
     st.write("")
     st.write("")
-    use_sample = st.button("Use Sample Dataset", use_container_width=True, type="primary")
+    use_sample = st.button("Use Sample Dataset", width="stretch", type="primary")
 
 with st.expander("What columns does my file need?"):
     st.markdown("Your file should ideally contain these columns (we'll guide you if anything's off):")
@@ -99,7 +99,7 @@ if "raw_df" in st.session_state:
     m4.metric("Duplicate rows", f"{int(df.duplicated().sum()):,}")
 
     st.markdown("### Preview (first 10 rows)")
-    st.dataframe(df.head(10), use_container_width=True)
+    st.dataframe(df.head(10), width="stretch")
 
     with st.expander("Column details (data types)"):
         col_info = pd.DataFrame({
@@ -108,7 +108,7 @@ if "raw_df" in st.session_state:
             "Missing Values": df.isna().sum().values,
             "Unique Values": [df[c].nunique() for c in df.columns]
         })
-        st.dataframe(col_info, use_container_width=True, hide_index=True)
+        st.dataframe(col_info, width="stretch", hide_index=True)
 
     st.markdown("---")
     st.info("Your data is loaded. Head to the **Preprocessing** page next to clean it up.")

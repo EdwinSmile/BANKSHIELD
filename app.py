@@ -2,7 +2,7 @@ import streamlit as st
 import sys, os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "utils"))
-from ui_helpers import inject_css, theme_picker
+from ui_helpers import theme_picker
 
 st.set_page_config(
     page_title="BankShield | Fraud Detection Dashboard",
@@ -30,5 +30,6 @@ pg = st.navigation(
 st.sidebar.markdown("---")
 theme_picker()
 
-inject_css()
+# Each page injects the themed CSS itself (via inject_css), so the selected page
+# below applies styling — no need to inject it a second time here.
 pg.run()
