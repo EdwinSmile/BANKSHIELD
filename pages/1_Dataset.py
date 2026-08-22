@@ -3,7 +3,7 @@ import pandas as pd
 import sys, os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "utils"))
-from ui_helpers import inject_css, explain, validate_columns, ensure_optional_columns, REQUIRED_COLUMNS
+from ui_helpers import inject_css, explain, validate_columns, ensure_optional_columns, REQUIRED_COLUMNS, kpi_card
 from pdf_extract import extract_tables_from_pdf, auto_map_columns
 
 inject_css()
@@ -93,10 +93,14 @@ if "raw_df" in st.session_state:
     st.markdown("---")
     st.markdown("### Dataset Overview")
     m1, m2, m3, m4 = st.columns(4)
-    m1.metric("Rows", f"{df.shape[0]:,}")
-    m2.metric("Columns", f"{df.shape[1]:,}")
-    m3.metric("Missing values", f"{int(df.isna().sum().sum()):,}")
-    m4.metric("Duplicate rows", f"{int(df.duplicated().sum()):,}")
+    with m1:
+        kpi_card("Rows", f"{df.shape[0]:,}", icon="📄")
+    with m2:
+        kpi_card("Columns", f"{df.shape[1]:,}", icon="🗂️")
+    with m3:
+        kpi_card("Missing values", f"{int(df.isna().sum().sum()):,}", icon="❓")
+    with m4:
+        kpi_card("Duplicate rows", f"{int(df.duplicated().sum()):,}", icon="🧬")
 
     st.markdown("### Preview (first 10 rows)")
     st.dataframe(df.head(10), width="stretch")

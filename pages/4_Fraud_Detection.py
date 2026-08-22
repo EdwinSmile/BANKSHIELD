@@ -5,7 +5,7 @@ import plotly.graph_objects as go
 import sys, os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "utils"))
-from ui_helpers import inject_css, explain, pbi_layout, get_theme, chart_type_toggle
+from ui_helpers import inject_css, explain, pbi_layout, get_theme, chart_type_toggle, ring_gauge, gauge_card
 from etl import warehouse_exists, get_fact_with_dims
 from ml_models import train_fraud_model
 
@@ -65,11 +65,13 @@ if "fraud_model_result" in st.session_state:
         "<b>F1 Score</b> balances precision and recall into one number."
     )
 
-    m1, m2, m3, m4 = st.columns(4)
+    m1, m2, m3, m4, m5 = st.columns([1, 1, 1, 1, 1.2])
     m1.metric("Accuracy", f"{metrics['accuracy']*100:.1f}%")
     m2.metric("Precision", f"{metrics['precision']*100:.1f}%")
     m3.metric("Recall", f"{metrics['recall']*100:.1f}%")
     m4.metric("F1 Score", f"{metrics['f1']*100:.1f}%")
+    with m5:
+        gauge_card(ring_gauge(metrics['accuracy'] * 100, subtitle="Model Confidence"), "Model Confidence")
 
     c1, c2 = st.columns(2)
     with c1:
@@ -119,7 +121,14 @@ if "fraud_model_result" in st.session_state:
     st.markdown("### Transactions Flagged as Fraud")
     preds = result["predictions"]
     flagged = preds[preds["PredictedFraud"] == 1].sort_values("FraudProbability", ascending=False)
-    explain(f"The model flagged **{len(flagged):,}** transactions as likely fraud, out of {len(preds):,} total.")
+
+    fc1, fc2 = st.columns([2.4, 1])
+    with fc1:
+        explain(f"The model flagged **{len(flagged):,}** transactions as likely fraud, out of {len(preds):,} total.")
+    with fc2:
+        if len(flagged):
+            top_conf = float(flagged.iloc[0]["FraudProbability"]) * 100
+            gauge_card(ring_gauge(top_conf, subtitle="Fraud Detected", color=theme["red"]), "Highest-Risk Transaction")
     if "InTestSet" in preds.columns:
         n_test_flagged = int(flagged["InTestSet"].sum())
         st.caption(

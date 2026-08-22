@@ -5,7 +5,7 @@ import sys, os
 from datetime import datetime
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "utils"))
-from ui_helpers import inject_css, explain, pbi_layout, get_color_maps
+from ui_helpers import inject_css, explain, pbi_layout, get_color_maps, kpi_card, ring_gauge, gauge_card
 from etl import warehouse_exists, get_fact_with_dims
 
 inject_css()
@@ -37,11 +37,15 @@ st.markdown(f"**Dataset:** {st.session_state.get('dataset_source', 'Unknown')}")
 
 st.markdown("---")
 st.markdown("### Executive Summary")
-m1, m2, m3, m4 = st.columns(4)
-m1.metric("Total Customers", f"{n_customers:,}")
-m2.metric("Total Transactions", f"{n_txns:,}")
-m3.metric("Fraudulent Transactions", f"{n_fraud:,}")
-m4.metric("Fraud Rate", f"{fraud_rate:.2f}%")
+m1, m2, m3, m4 = st.columns([1, 1, 1, 1.2])
+with m1:
+    kpi_card("Total Customers", f"{n_customers:,}", icon="👥")
+with m2:
+    kpi_card("Total Transactions", f"{n_txns:,}", icon="💳")
+with m3:
+    kpi_card("Fraudulent Transactions", f"{n_fraud:,}", icon="🚨")
+with m4:
+    gauge_card(ring_gauge(fraud_rate, subtitle="Fraud Rate"), "Fraud Rate")
 
 if has_risk:
     st.markdown("### Customer Risk Breakdown")

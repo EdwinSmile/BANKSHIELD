@@ -18,7 +18,14 @@ fraud_detection = st.Page("pages/4_Fraud_Detection.py", title="Fraud Detection")
 customer_risk = st.Page("pages/5_Customer_Risk.py", title="Customer Risk")
 reports = st.Page("pages/6_Reports.py", title="Reports")
 
-st.sidebar.title("BankShield")
+st.sidebar.markdown(
+    "<div style='display:flex;align-items:center;gap:10px;padding:4px 0 2px 0;'>"
+    "<div style='width:32px;height:32px;border-radius:9px;background:#22C55E;"
+    "display:flex;align-items:center;justify-content:center;font-size:16px;'>🛡️</div>"
+    "<div style='font-size:19px;font-weight:800;'>BankShield</div>"
+    "</div>",
+    unsafe_allow_html=True,
+)
 st.sidebar.caption("Banking Fraud Detection & Customer Risk Dashboard")
 st.sidebar.markdown("---")
 

@@ -5,7 +5,7 @@ import html
 import sys, os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "utils"))
-from ui_helpers import inject_css, explain, risk_badge, pbi_layout, get_color_maps, chart_type_toggle
+from ui_helpers import inject_css, explain, risk_badge, pbi_layout, get_color_maps, chart_type_toggle, half_gauge, gauge_card
 from etl import warehouse_exists, get_fact_with_dims, update_customer_risk
 from ml_models import run_customer_clustering
 
@@ -48,14 +48,27 @@ if "cluster_result" in st.session_state:
 
     st.markdown("---")
     st.markdown("### Risk Group Summary")
-    cols = st.columns(len(profile))
-    for i, (_, row) in enumerate(profile.iterrows()):
-        with cols[i]:
-            st.markdown(f"#### {risk_badge(row['RiskLevel'])}", unsafe_allow_html=True)
-            st.metric("Customers", f"{int(row['Count']):,}")
-            st.caption(f"Avg. transaction: ${row['AvgAmount']:,.0f}")
-            st.caption(f"Avg. fraud cases: {row['AvgFraudCount']:.2f}")
-            st.caption(f"Avg. credit score: {row['AvgCreditScore']:.0f}")
+
+    # Overall portfolio risk score (0-100): weighted share of Medium/High risk customers.
+    weight_map = {"Low Risk": 0, "Medium Risk": 55, "High Risk": 100}
+    total_customers = profile["Count"].sum()
+    portfolio_score = (
+        sum(profile["Count"] * profile["RiskLevel"].map(weight_map).fillna(50)) / total_customers
+        if total_customers else 0
+    )
+
+    sc1, sc2 = st.columns([2.4, 1])
+    with sc1:
+        cols = st.columns(len(profile))
+        for i, (_, row) in enumerate(profile.iterrows()):
+            with cols[i]:
+                st.markdown(f"#### {risk_badge(row['RiskLevel'])}", unsafe_allow_html=True)
+                st.metric("Customers", f"{int(row['Count']):,}")
+                st.caption(f"Avg. transaction: ${row['AvgAmount']:,.0f}")
+                st.caption(f"Avg. fraud cases: {row['AvgFraudCount']:.2f}")
+                st.caption(f"Avg. credit score: {row['AvgCreditScore']:.0f}")
+    with sc2:
+        gauge_card(half_gauge(portfolio_score, vmin=0, vmax=100), "Overall Portfolio Risk")
 
     st.markdown("---")
     c1, c2 = st.columns(2)

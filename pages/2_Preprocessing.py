@@ -3,7 +3,7 @@ import pandas as pd
 import sys, os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "utils"))
-from ui_helpers import inject_css, explain
+from ui_helpers import inject_css, explain, kpi_card
 from etl import build_warehouse
 
 inject_css()
@@ -84,10 +84,14 @@ if "warehouse_summary" in st.session_state:
     st.markdown("---")
     st.markdown("### Cleaning Summary")
     m1, m2, m3, m4 = st.columns(4)
-    m1.metric("Rows before", f"{report['rows_before']:,}")
-    m2.metric("Duplicates removed", f"{report['duplicates_found']:,}")
-    m3.metric("Rows after cleaning", f"{report['rows_after_dedup']:,}")
-    m4.metric("Strategy used", report["strategy_used"].title())
+    with m1:
+        kpi_card("Rows before", f"{report['rows_before']:,}", icon="📥")
+    with m2:
+        kpi_card("Duplicates removed", f"{report['duplicates_found']:,}", icon="🧹")
+    with m3:
+        kpi_card("Rows after cleaning", f"{report['rows_after_dedup']:,}", icon="✅")
+    with m4:
+        kpi_card("Strategy used", report["strategy_used"].title(), icon="⚙️")
 
     if report["missing_values_filled"]:
         st.markdown("**Missing values filled per column:**")
